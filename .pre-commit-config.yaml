@@ -22,7 +22,7 @@ repos:
         - id: pydocstyle
           args: ["--convention=google",
                  "--add-select=D400, D401",
-                 "--add-ignore=D415"]
+                 "--add-ignore=D415, D417"]
           # Omit all migrations directories
           # Omit all __init__.py module files
           exclude: |
