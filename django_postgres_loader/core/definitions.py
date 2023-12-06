@@ -3,4 +3,8 @@
 # standard library imports
 import os
 
-SQL_TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), 'sql_templates')
+SQL_TEMPLATE_DIR = os.path.join(
+    os.path.dirname(__file__),
+    "templates",
+    "sql",
+)
