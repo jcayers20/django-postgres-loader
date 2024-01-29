@@ -148,12 +148,14 @@ class CopyLoader:
         # Step 3
         if isinstance(data, io.StringIO):
             self.data = data
+            data.seek(0)
         elif isinstance(data, str):
             if not os.path.isfile(data):
                 raise FileNotFoundError(f"File {data} does not exist.")
 
             with open(file=data, mode="r") as file:
                 self.data = io.StringIO(file.read())
+                self.data.seek(0)
         elif hasattr(data, "to_csv"):
             string_io_data = io.StringIO()
             data.to_csv(string_io_data, index=False)
