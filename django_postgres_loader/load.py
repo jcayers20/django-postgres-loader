@@ -210,7 +210,9 @@ class CopyLoader:
         self.model_columns = self.get_model_columns()
 
         # Step 9
-        self.field_mapping = field_mapping
+        self.field_mapping = (
+            field_mapping if field_mapping is not None else dict()
+        )
         self.validate_field_mapping()
         self.complete_field_mapping()
         self.validate_field_mapping()
