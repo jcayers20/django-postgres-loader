@@ -9,14 +9,14 @@ SQL_TEMPLATE_DIR = os.path.join(
     "sql",
 )
 
-PERMITTED_OPERATIONS = [
+INCLUDED_OPERATIONS = [
     "append",
     "safe_append",
     "update",
     "upsert",
 ]
 
-PERMITTED_UPDATE_OPERATIONS = [
+INCLUDED_UPDATE_OPERATIONS = [
     "add",
     "subtract_new",
     "subtract_old",

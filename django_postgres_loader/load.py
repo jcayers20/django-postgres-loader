@@ -549,7 +549,7 @@ class CopyLoader:
             None
         """
         # Step 1
-        if self.operation in definitions.PERMITTED_OPERATIONS:
+        if self.operation in definitions.INCLUDED_OPERATIONS:
             pass
 
         # Step 2
@@ -618,10 +618,10 @@ class CopyLoader:
         if isinstance(self.update_operation, str):
             if (
                 self.update_operation
-                not in definitions.PERMITTED_UPDATE_OPERATIONS
+                not in definitions.INCLUDED_UPDATE_OPERATIONS
             ):
                 raise ValueError(
-                    f"Update operation must be one of: {', '.join(definitions.PERMITTED_UPDATE_OPERATIONS)}."
+                    f"Update operation must be one of: {', '.join(definitions.INCLUDED_UPDATE_OPERATIONS)}."
                 )
 
         # Step 2
@@ -671,10 +671,10 @@ class CopyLoader:
                         f"Update operation for column {column} must be a string."
                     )
 
-                # Step 2.4
-                elif operation not in definitions.PERMITTED_UPDATE_OPERATIONS:
+                # Step 3.4
+                elif operation not in definitions.INCLUDED_UPDATE_OPERATIONS:
                     raise ValueError(
-                        f"Update operation for column {column} must be one of: {', '.join(definitions.PERMITTED_UPDATE_OPERATIONS)}"
+                        f"Update operation for column {column} must be one of: {', '.join(definitions.INCLUDED_UPDATE_OPERATIONS)}"
                     )
 
         # Step 4
