@@ -697,3 +697,246 @@ class CopyLoader:
             raise TypeError(
                 "Update operation definition must be a string or dictionary."
             )
+
+    def build_create_query(self) -> str:
+        """Build the query used to create a temp table on the database.
+
+        Steps:
+            1.  Use template to build the create query.
+            2.  Dynamically populate the temp table name.
+            3.  Generate list of field definitions based on the data's columns.
+            4.  Format (3) for inclusion in the template and update the template
+                to include field definitions.
+            5.  Return.
+
+        Returns (str):
+            The query used to create a temp table on the database.
+        """
+        # Step 1
+        create_query_path = os.path.join(
+            definitions.SQL_TEMPLATE_DIR,
+            "create.sql",
+        )
+        create_query = Path(create_query_path).read_text()
+
+        # Step 2
+        create_query = create_query.replace(
+            "{temp_table_name}",
+            self.temp_table_name,
+        )
+
+        # Step 3
+        field_definitions = []
+        for field in self.data_columns:
+            field_type = self.model._meta.get_field(field).db_type(
+                self.db_connection
+            )
+            field_definition = f'"{field}" {field_type.upper()}'
+            field_definitions.append(field_definition)
+
+        # Step 4
+        field_definitions = ",\n\t".join(field_definitions)
+        create_query = create_query.replace(
+            "{field_definitions}",
+            field_definitions,
+        )
+
+        # Step 5
+        return create_query
+
+    def build_copy_query(self) -> str:
+        """Build the query used to copy data into the temp table.
+
+        Returns (str):
+            The query used to copy data into the temp table.
+        """
+        # Step 1
+        copy_query_path = os.path.join(
+            definitions.SQL_TEMPLATE_DIR,
+            "copy.sql",
+        )
+        copy_query = Path(copy_query_path).read_text()
+
+        # Step 2
+        copy_query = copy_query.replace(
+            "{temp_table_name}",
+            self.temp_table_name,
+        )
+
+        # Step 3
+        columns = ",\n\t".join(self.data_columns)
+        copy_query = copy_query.replace("{columns}", columns)
+
+        # Step 4
+        header_options = []
+        if self.quote_character is not None:
+            header_options.append(f"QUOTE {self.quote_character}")
+        header_options.append(f"DELIMITER '{self.delimiter}'")
+        if self.null_string is not None:
+            header_options.append(f"NULL '{self.null_string}'")
+        if self.force_null is not None:
+            force_null = ", ".join(f'"{col}' for col in self.force_null)
+            header_options.append(f"FORCE_NULL {force_null}")
+        if self.force_not_null is not None:
+            force_not_null = ", ".join(f'"{col}' for col in self.force_not_null)
+            header_options.append(f"FORCE_NOT_NULL {force_not_null}")
+        if self.encoding is not None:
+            header_options.append(f"ENCODING {self.encoding}")
+
+        # Step 5
+        header_options = "\n\t".join(header_options)
+        copy_query = copy_query.replace("{header_options}", header_options)
+
+        # Step 6
+        return copy_query
+
+    def build_insert_query(self) -> str:
+        """Build the query used to insert temp table data into model table.
+
+        Returns (str):
+            The query used to insert temp table data into model table.
+        """
+        # Step 1
+        insert_query_path = os.path.join(
+            definitions.SQL_TEMPLATE_DIR,
+            f"{self.operation}.sql",
+        )
+        insert_query = Path(insert_query_path).read_text()
+
+        # Step 2
+        model_table_name = self.model_table
+        insert_query = insert_query.replace(
+            "{model_table_name}",
+            model_table_name,
+        )
+
+        # Step 3
+        insert_query = insert_query.replace(
+            "{temp_table_name}",
+            self.temp_table_name,
+        )
+
+        # Step 4
+        columns = ",\n\t".join(f'"{col}"' for col in self.data_columns)
+        insert_query = insert_query.replace("{columns}", columns)
+
+        # Step 5
+        if self.conflict_target is not None:
+            conflict_target = ", ".join(
+                f'"{col}"' for col in self.conflict_target
+            )
+            insert_query = insert_query.replace(
+                "{conflict_target}",
+                conflict_target,
+            )
+
+        # Step 6
+        if self.update_operation is not None:
+            # Step 6.1
+            update_operations = []
+
+            # Step 6.2
+            if isinstance(self.update_operation, str):
+                # Step 6.2.1
+                data_column_set = set(self.data_columns)
+                conflict_target_set = set(self.conflict_target)
+                non_conflict_target = list(
+                    data_column_set.difference(conflict_target_set)
+                )
+                updater = getattr(field_updaters, self.update_operation)
+
+                # Step 6.2.2
+                for field in non_conflict_target:
+                    update_snippet = updater(field, model_table_name)
+                    update_operations.append(update_snippet)
+
+                # Step 6.2.3
+                update_operations = ",\n\t".join(update_operations)
+
+            # Step 6.3
+            elif isinstance(self.update_operation, Callable):
+                # Step 6.3.1
+                data_column_set = set(self.data_columns)
+                conflict_target_set = set(self.conflict_target)
+                non_conflict_target = list(
+                    data_column_set.difference(conflict_target_set)
+                )
+                updater = self.update_operation
+
+                # Step 6.3.2
+                for field in non_conflict_target:
+                    update_snippet = updater(field, model_table_name)
+                    update_operations.append(update_snippet)
+
+                # Step 6.3.3
+                update_operations = ",\n\t".join(update_operations)
+
+            # Step 6.4
+            else:
+                # Step 6.4.1
+                for field, operation in self.update_operation.items():
+                    if isinstance(operation, str):
+                        updater = getattr(field_updaters, operation)
+                    else:
+                        updater = operation
+
+                    update_snippet = updater(field, model_table_name)
+                    update_operations.append(update_snippet)
+
+                # Step 6.4.2
+                update_operations = ",\n\t".join(update_operations)
+
+            # Step 6.5
+            insert_query = insert_query.replace(
+                "{update_operations}",
+                update_operations,
+            )
+
+        # Step 7
+        if self.operation == "update":
+            # Step 7.1
+            update_join_conditions = []
+
+            # Step 7.2
+            for field in self.conflict_target:
+                old_field = f'"{model_table_name}"."{field}"'
+                new_field = f'"{self.temp_table_name}"."{field}"'
+                join_condition = f"""{old_field} = {new_field}"""
+                update_join_conditions.append(join_condition)
+
+            # Step 7.3
+            update_join_conditions = "\n\t\t\tAND ".join(update_join_conditions)
+            insert_query = insert_query.replace(
+                "{update_join_conditions}",
+                update_join_conditions,
+            )
+
+        # Step 8
+        return insert_query
+
+    def build_drop_query(self) -> str:
+        """Build the query used to drop the temp table.
+
+        Steps:
+            1.  Use template to build the drop query.
+            2.  Dynamically populate the temp table name.
+            3.  Return.
+
+        Returns (str):
+            The query used to drop the temp table from the database.
+        """
+        # Step 1
+        drop_query_path = os.path.join(
+            definitions.SQL_TEMPLATE_DIR,
+            "drop.sql",
+        )
+        drop_query = Path(drop_query_path).read_text()
+
+        # Step 2
+        drop_query = drop_query.replace(
+            "{temp_table_name}",
+            self.temp_table_name,
+        )
+
+        # Step 3
+        return drop_query
