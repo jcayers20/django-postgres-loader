@@ -264,14 +264,21 @@ class CopyLoader:
         header_row = data_rows[0]
 
         # Step 2
+        n_updates = 0
         for old, new in self.field_mapping.items():
             if old != new:
                 header_row = header_row.replace(old, new)
+                n_updates += 1
 
         # Step 3
         data_rows[0] = header_row
         data = "".join(data_rows)
         self.data = io.StringIO(data)
+        self.data.seek(0)
+
+        # Step 4
+        if n_updates > 0:
+            self.data_columns = self.get_data_columns()
 
     def complete_field_mapping(self) -> None:
         """Ensure that [self].field_mapping is complete.
