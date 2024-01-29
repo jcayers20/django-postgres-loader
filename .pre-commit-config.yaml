@@ -1,0 +1,35 @@
+
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.2.0
+    hooks:
+    -   id: trailing-whitespace
+    -   id: end-of-file-fixer
+    -   id: check-yaml
+    -   id: check-added-large-files
+    -   id: pretty-format-json
+    -   id: check-case-conflict
+    -   id: check-docstring-first
+    -   id: check-ast
+-   repo: https://github.com/psf/black
+    rev: 22.6.0
+    hooks:
+        - id: black
+          args: [--line-length=80]
+-   repo: https://github.com/PyCQA/pydocstyle
+    rev: 6.1.1
+    hooks:
+        - id: pydocstyle
+          args: ["--convention=google",
+                 "--add-select=D400, D401",
+                 "--add-ignore=D415, D417"]
+          # Omit all migrations directories
+          # Omit all __init__.py module files
+          exclude: |
+              (?x)^(
+                (|.*\/)__init__\.py
+              )$
+-   repo: https://github.com/jorisroovers/gitlint
+    rev: v0.17.0
+    hooks:
+    -   id: gitlint
