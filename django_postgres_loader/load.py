@@ -4,20 +4,18 @@
 import csv
 import inspect
 import io
-import logging
 import os
 from pathlib import Path
 import random
 import string
-from typing import Any, Callable, Dict, List, Optional, Set, Type, Union
+from typing import Callable, Dict, List, Optional, Set, Type, Union
 
 # third-party imports
 from django.db import models
 from django.db import connections, NotSupportedError, router
 
 # local imports
-from django_postgres_loader.utils import field_updaters
-from django_postgres_loader.core import definitions
+from django_postgres_loader.core import definitions, field_updaters
 
 
 class CopyLoader:
