@@ -326,7 +326,7 @@ class CopyLoader:
             The names of the columns found in [self].data.
         """
         # Step 1
-        reader = csv.reader(csvfile=self.data, delimiter=self.delimiter)
+        reader = csv.reader(self.data, delimiter=self.delimiter)
 
         # Step 2
         columns = next(reader)
@@ -383,7 +383,7 @@ class CopyLoader:
                 valid_conflict_targets.append({field_name})
 
         # Step 4
-        for c in self._model.meta.constraints:
+        for c in self.model._meta.constraints:
             if isinstance(c, models.UniqueConstraint):
                 valid_conflict_targets.append(set(c.fields))
 
