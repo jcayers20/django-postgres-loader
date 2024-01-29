@@ -132,6 +132,7 @@ class CopyLoader:
         # Step 1
         if isinstance(model, models.Model):
             self.model = model
+            self.model_table = self.model._meta.db_table
         else:
             raise TypeError("Model must be a Django model.")
 
