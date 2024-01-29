@@ -778,6 +778,34 @@ class CopyLoader:
         """
         pass
 
+    def create(self, cursor) -> None:
+        """Create a temp table to store new data.
+
+        Steps:
+            1.  Run the pre-create hook.
+            2.  Build the query used to create the temp table.
+            3.  Execute the query and create the temp table.
+            4.  Run the post-create hook.
+
+        Args:
+            cursor:
+                Cursor.
+
+        Returns:
+            None
+        """
+        # Step 1
+        self.pre_create(cursor)
+
+        # Step 2
+        create_query = self.build_create_query()
+
+        # Step 3
+        cursor.execute(create_query)
+
+        # Step 4
+        self.post_create(cursor)
+
     def pre_copy(self, cursor) -> None:
         """Pre-copy hook.
 
@@ -857,6 +885,34 @@ class CopyLoader:
             None
         """
         pass
+
+    def copy(self, cursor) -> None:
+        """Populate the temp table with data from STDIN.
+
+        Steps:
+            1.  Run the pre-copy hook.
+            2.  Build the query used to populate the temp table.
+            3.  Execute the query and populate the temp table.
+            4.  Run the post-copy hook.
+
+        Args:
+            cursor:
+                Cursor.
+
+        Returns:
+            None
+        """
+        # Step 1
+        self.pre_copy(cursor)
+
+        # Step 2
+        copy_query = self.build_copy_query()
+
+        # Step 3
+        cursor.copy_expert(copy_query, self.data)
+
+        # Step 4
+        self.post_copy(cursor)
 
     def pre_insert(self, cursor) -> None:
         """Pre-insert hook.
@@ -1016,6 +1072,39 @@ class CopyLoader:
         """
         pass
 
+    def insert(self, cursor) -> int:
+        """Perform the insert required to apply the desired update.
+
+        Steps:
+            1.  Run the pre-insert hook.
+            2.  Build the query used to perform the update.
+            3.  Execute the query and perform the update and get row count.
+            4.  Run the post-insert hook.
+            5.  Return.
+
+        Args:
+            cursor:
+                Cursor.
+
+        Returns (int):
+            The number of rows affected by the update.
+        """
+        # Step 1
+        self.pre_insert(cursor)
+
+        # Step 2
+        insert_query = self.build_insert_query()
+
+        # Step 3
+        cursor.execute(insert_query)
+        n_rows_affected = cursor.rowcount
+
+        # Step 4
+        self.post_insert(cursor)
+
+        # Step 5
+        return n_rows_affected
+
     def pre_drop(self, cursor) -> None:
         """Pre-drop hook.
 
@@ -1076,3 +1165,47 @@ class CopyLoader:
             None
         """
         pass
+
+    def drop(self, cursor) -> None:
+        """Remove the temp table from the database.
+
+        Steps:
+            1.  Run the pre-drop hook.
+            2.  Build the query to drop the temp table.
+            3.  Execute the query and drop the temp table.
+            4.  Run the post-drop hook.
+
+        Args:
+            cursor:
+                Cursor.
+
+        Returns:
+            None
+        """
+        # Step 1
+        self.pre_drop(cursor)
+
+        # Step 2
+        drop_query = self.build_drop_query()
+
+        # Step 3
+        cursor.execute(drop_query)
+
+        # Step 4
+        self.post_drop(cursor)
+
+    def load(self) -> int:
+        """Perform the full update pipeline.
+
+        Returns (int):
+            The number of rows affected by the update.
+        """
+        # Step 1
+        with self.db_connection.cursor() as cursor:
+            self.create(cursor=cursor)
+            self.copy(cursor=cursor)
+            n_rows_affected = self.insert(cursor=cursor)
+            self.drop(cursor=cursor)
+
+        # Step 2
+        return n_rows_affected
