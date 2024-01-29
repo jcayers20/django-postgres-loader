@@ -28,7 +28,9 @@ class CopyLoader:
         data: Union[str, io.StringIO],
         operation: str,
         conflict_target: Optional[List[str]] = None,
-        update_operation: Optional[Union[str, Dict[str, Optional[str]]]] = None,
+        update_operation: Optional[
+            Union[str, Callable, Dict[str, Optional[Union[str, Callable]]]]
+        ] = None,
         field_mapping: Optional[Dict[str, str]] = None,
         delimiter: Optional[str] = None,
         null_string: Optional[str] = None,
@@ -86,18 +88,21 @@ class CopyLoader:
                 [operation] is "safe_append", "update", or "upsert"; will not be
                 used if [operation] is "append" or "replace". If provided, must
                 be a subset of [model]'s columns.
-            update_operation ([str|dict[str, [str]]:
+            update_operation ([str|Callable|dict[str, [str|Callable]]:
                 The operation to use when updating records. Must be provided if
                 [operation] is "update" or "upsert"; will not be used if
                 [operation] is "append", "safe_append", or "replace".
 
-                May be provided as a string or a dictionary whose keys are names
-                of columns in [data] and whose values are operations. If a
-                string is provided, the provided operation will be used to
-                update all columns other than those specified in
+                May be provided as a string, function, or a dictionary whose
+                keys are names of columns in [data] and whose values are
+                operations. If a string is provided, the provided operation will
+                be used to update all columns other than those specified in
                 [conflict_target]. If a dictionary is provided, then its keys
                 must be a subset of [data]'s columns (any excluded columns will
                 not be updated) and its values must be valid update operations.
+                If a function (Callable) is provided, then it must have three
+                parameters: field_name, model_table_name, temp_table_name; it
+                must also return a string (this is NOT validated).
 
                 See above for permissible values and descriptions.
             field_mapping ([dict]):
@@ -618,21 +623,47 @@ class CopyLoader:
                 )
 
         # Step 2
+        elif isinstance(self.update_operation, Callable):
+            signature = inspect.signature(self.update_operation)
+            parameters = set(list(signature.parameters))
+            expected_parameters = {
+                "field_name",
+                "target_table_name",
+            }
+            if parameters != expected_parameters:
+                raise ValueError(
+                    f"If update operation is a function, then it must include precisely the following parameters: {', '.join(expected_parameters)}."
+                )
+
+        # Step 3
         elif isinstance(self.update_operation, dict):
             for column, operation in self.update_operation.items():
-                # Step 2.1
+                # Step 3.1
                 if column in self.conflict_target:
                     raise ValueError(
                         f"Column {column} is part of the conflict target and cannot be updated."
                     )
 
-                # Step 2.2
+                # Step 3.2
                 elif column not in self.model_columns:
                     raise ValueError(
                         f"Column {column} not found in model {self.model.__name__}."
                     )
 
-                # Step 2.3
+                # Step 3.3
+                elif isinstance(operation, Callable):
+                    signature = inspect.signature(operation)
+                    parameters = set(list(signature.parameters))
+                    expected_parameters = {
+                        "field_name",
+                        "target_table_name",
+                    }
+                    if parameters != expected_parameters:
+                        raise ValueError(
+                            f"Update operation for {column} is a function, but does not include precisely the following parameters: {', '.join(expected_parameters)}."
+                        )
+
+                # Step 3.3
                 elif not isinstance(operation, str):
                     raise TypeError(
                         f"Update operation for column {column} must be a string."
@@ -644,14 +675,14 @@ class CopyLoader:
                         f"Update operation for column {column} must be one of: {', '.join(definitions.PERMITTED_UPDATE_OPERATIONS)}"
                     )
 
-        # Step 3
+        # Step 4
         elif self.update_operation is None:
             if self.operation in ["update", "upsert"]:
                 raise ValueError(
                     f"If performing load operation {self.operation}, then an update operation must be provided."
                 )
 
-        # Step 4
+        # Step 5
         else:
             raise TypeError(
                 "Update operation definition must be a string or dictionary."
