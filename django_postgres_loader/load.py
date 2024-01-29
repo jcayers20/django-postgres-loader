@@ -16,7 +16,7 @@ from django.db import models
 from django.db import connections, NotSupportedError, router
 
 # local imports
-from django_postgres_loader import utils
+from django_postgres_loader.utils import field_updaters
 from django_postgres_loader.core import definitions
 
 
