@@ -698,6 +698,23 @@ class CopyLoader:
                 "Update operation definition must be a string or dictionary."
             )
 
+    def pre_create(self, cursor) -> None:
+        """Pre-create hook.
+
+        This function does nothing, but serves as a placeholder in case users wish
+        to use a custom pre-create hook.
+
+        Args:
+            self:
+                CopyLoader instance.
+            cursor:
+                Cursor.
+
+        Returns:
+            None
+        """
+        pass
+
     def build_create_query(self) -> str:
         """Build the query used to create a temp table on the database.
 
@@ -744,6 +761,40 @@ class CopyLoader:
         # Step 5
         return create_query
 
+    def post_create(self, cursor) -> None:
+        """Post-create hook.
+
+        This function does nothing, but serves as a placeholder in case users wish
+        to use a custom post-create hook.
+
+        Args:
+            self:
+                CopyLoader instance.
+            cursor:
+                Cursor.
+
+        Returns:
+            None
+        """
+        pass
+
+    def pre_copy(self, cursor) -> None:
+        """Pre-copy hook.
+
+        This function does nothing, but serves as a placeholder in case users wish
+        to use a custom pre-copy hook.
+
+        Args:
+            self:
+                CopyLoader instance.
+            cursor:
+                Cursor.
+
+        Returns:
+            None
+        """
+        pass
+
     def build_copy_query(self) -> str:
         """Build the query used to copy data into the temp table.
 
@@ -789,6 +840,40 @@ class CopyLoader:
 
         # Step 6
         return copy_query
+
+    def post_copy(self, cursor) -> None:
+        """Post-copy hook.
+
+        This function does nothing, but serves as a placeholder in case users wish
+        to use a custom post-copy hook.
+
+        Args:
+            self:
+                CopyLoader instance.
+            cursor:
+                Cursor.
+
+        Returns:
+            None
+        """
+        pass
+
+    def pre_insert(self, cursor) -> None:
+        """Pre-insert hook.
+
+        This function does nothing, but serves as a placeholder in case users wish
+        to use a custom pre-insert hook.
+
+        Args:
+            self:
+                CopyLoader instance.
+            cursor:
+                Cursor.
+
+        Returns:
+            None
+        """
+        pass
 
     def build_insert_query(self) -> str:
         """Build the query used to insert temp table data into model table.
@@ -914,6 +999,40 @@ class CopyLoader:
         # Step 8
         return insert_query
 
+    def post_insert(self, cursor) -> None:
+        """Post-insert hook.
+
+        This function does nothing, but serves as a placeholder in case users wish
+        to use a custom post-insert hook.
+
+        Args:
+            self:
+                CopyLoader instance.
+            cursor:
+                Cursor.
+
+        Returns:
+            None
+        """
+        pass
+
+    def pre_drop(self, cursor) -> None:
+        """Pre-drop hook.
+
+        This function does nothing, but serves as a placeholder in case users wish
+        to use a custom pre-drop hook.
+
+        Args:
+            self:
+                CopyLoader instance.
+            cursor:
+                Cursor.
+
+        Returns:
+            None
+        """
+        pass
+
     def build_drop_query(self) -> str:
         """Build the query used to drop the temp table.
 
@@ -940,3 +1059,20 @@ class CopyLoader:
 
         # Step 3
         return drop_query
+
+    def post_drop(self, cursor) -> None:
+        """Post-drop hook.
+
+        This function does nothing, but serves as a placeholder in case users wish
+        to use a custom post-drop hook.
+
+        Args:
+            self:
+                CopyLoader instance.
+            cursor:
+                Cursor.
+
+        Returns:
+            None
+        """
+        pass
