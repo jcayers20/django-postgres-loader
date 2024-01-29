@@ -799,7 +799,7 @@ class CopyLoader:
         # Step 1
         insert_query_path = os.path.join(
             definitions.SQL_TEMPLATE_DIR,
-            f"{self.operation}.sql",
+            f"insert__{self.operation}.sql",
         )
         insert_query = Path(insert_query_path).read_text()
 
