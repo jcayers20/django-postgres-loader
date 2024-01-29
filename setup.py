@@ -10,6 +10,7 @@ setup(
     author="Jacob Ayers",
     author_email="jcayers20@gmail.com",
     url="https://github.com/jcayers20/django-postgres-loader",
+    download_url="https://github.com/jcayers20/django-postgres-loader/archive/refs/tags/0.1.0.tar.gz",
     packages=find_packages(),
     keywords=["django", "postgres", "PostgreSQL", "ETL", "load"],
     install_requires=[
