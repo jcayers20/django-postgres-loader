@@ -17,7 +17,7 @@ class CopyLoadQuerySet(models.QuerySet):
     def load(
         self,
         data: Union[io.StringIO, str],
-        operation: str,
+        operation: str = "append",
         truncate: Union[bool, models.QuerySet] = False,
         conflict_target: Optional[List[str]] = None,
         update_operation: Optional[
