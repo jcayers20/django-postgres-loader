@@ -230,6 +230,7 @@ class CopyLoader:
         if temp_table_name is None:
             self.temp_table_name = self.generate_temp_table_name()
         elif isinstance(temp_table_name, str):
+            self.temp_table_name = temp_table_name
             self.validate_temp_table_name()
         else:
             raise TypeError("Temp table name must be a string.")
