@@ -1,0 +1,1 @@
+include django_postgres_loader/core/templates/sql/*.sql
