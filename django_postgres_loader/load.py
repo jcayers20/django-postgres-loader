@@ -49,7 +49,6 @@ class CopyLoader:
 
         Supported operations:
             "append":       Add [data] without performing any conflict check.
-            "replace":      Remove all data from [model], then load [data].
             "safe_append":  Add [data], but do not add rows where
                             [conflict_target] matches that of an existing row.
             "update":       If [conflict_target] matches that of an existing

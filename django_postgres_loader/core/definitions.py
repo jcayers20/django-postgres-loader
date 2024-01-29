@@ -11,7 +11,6 @@ SQL_TEMPLATE_DIR = os.path.join(
 
 PERMITTED_OPERATIONS = [
     "append",
-    "replace",
     "safe_append",
     "update",
     "upsert",
