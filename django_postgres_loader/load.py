@@ -130,7 +130,7 @@ class CopyLoader:
                 a name will be randomly generated.
         """
         # Step 1
-        if isinstance(model, models.Model):
+        if issubclass(model, models.Model):
             self.model = model
             self.model_table = self.model._meta.db_table
         else:
