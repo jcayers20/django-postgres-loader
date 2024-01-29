@@ -15,7 +15,7 @@ from django.db import models
 from django.db import connections, NotSupportedError, router
 
 # local imports
-from django_postgres_loader.core import definitions, field_updaters
+from .core import definitions, field_updaters
 
 
 class CopyLoader:
