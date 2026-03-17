@@ -1,0 +1,18 @@
+[project]
+name = "django-postgres-loader"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "django>=4.2",
+    "jinja2>=2.11.0",
+]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.5.1",
+    "pytest>=9.0.2",
+    "ruff>=0.15.6",
+    "sqlfluff>=4.0.4",
+]
