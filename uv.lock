@@ -139,8 +139,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "django", specifier = "==4.2" },
-    { name = "jinja2", specifier = "==2.11.0" },
+    { name = "django", specifier = ">=4.2" },
+    { name = "jinja2", specifier = ">=2.11.0" },
 ]
 
 [package.metadata.requires-dev]
