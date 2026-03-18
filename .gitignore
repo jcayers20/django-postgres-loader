@@ -233,3 +233,7 @@ _dev
 
 # Local data files
 data/
+
+# AI-related files and directories
+plans/
+prompts/
