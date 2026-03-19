@@ -1,8 +1,3 @@
-from .load import CopyLoader
-from .managers import CopyLoadQuerySet, CopyLoadManager
+from .managers import CopyManager
 
-__all__ = (
-    "CopyLoader",
-    "CopyLoadQuerySet",
-    "CopyLoadManager",
-)
+__all__ = ("CopyManager",)

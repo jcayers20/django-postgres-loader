@@ -1,32 +1,31 @@
-"""Variable definitions for use throughout package."""
+"""Module-level constants and the shared Jinja2 environment for SQL templates."""
 
-# standard library imports
-import os
+from pathlib import Path
 
-SQL_TEMPLATE_DIR = os.path.join(
-    os.path.dirname(__file__),
-    "templates",
-    "sql",
+import jinja2
+
+# Valid insertion methods supported by CopyManager.load()
+VALID_METHODS = ("replace", "append", "update", "upsert")
+
+# Path to the SQL template directory
+_TEMPLATE_DIR = Path(__file__).parent / "templates" / "sql"
+
+# Jinja2 environment — autoescape=False is REQUIRED so SQL is not HTML-escaped
+_env = jinja2.Environment(
+    loader=jinja2.FileSystemLoader(str(_TEMPLATE_DIR)),
+    autoescape=False,
 )
 
-INCLUDED_OPERATIONS = [
-    "append",
-    "safe_append",
-    "update",
-    "upsert",
-]
 
-INCLUDED_UPDATE_OPERATIONS = [
-    "add",
-    "subtract_new",
-    "subtract_old",
-    "multiply",
-    "divide_new",
-    "divide_old",
-    "replace",
-    "coalesce_new",
-    "coalesce_old",
-    "greatest",
-    "least",
-    None,
-]
+def render_template(template_name: str, **context) -> str:
+    """Render a SQL template with the given context variables.
+
+    Args:
+        template_name: Filename of the template (e.g. "create.sql").
+        **context: Variables made available inside the template.
+
+    Returns:
+        The rendered SQL string.
+    """
+    template = _env.get_template(template_name)
+    return template.render(**context)
