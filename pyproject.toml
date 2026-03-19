@@ -22,14 +22,17 @@ classifiers = [
 ]
 dependencies = [
     "django>=4.2",
-    "jinja2>=2.11.0",
+    "jinja2>=3.1",
 ]
 
 [dependency-groups]
 dev = [
     "build>=1.4.0",
+    "pandas>=2.3.3",
     "pre-commit>=4.5.1",
+    "psycopg2>=2.9.11",
     "pytest>=9.0.2",
+    "pytest-cov>=4.0.0",
     "ruff>=0.15.6",
     "sqlfluff>=4.0.4",
 ]
@@ -44,3 +47,8 @@ include-package-data = true
 [tool.setuptools.packages.find]
 where = ["."]
 exclude = ["tests*"]
+
+[tool.pytest.ini_options]
+addopts = "-v --cov django_postgres_loader --cov-report html"
+log_cli = true
+log_cli_level = "INFO"
