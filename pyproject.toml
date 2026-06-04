@@ -52,3 +52,71 @@ exclude = ["tests*"]
 addopts = "-v --cov django_postgres_loader --cov-report html"
 log_cli = true
 log_cli_level = "INFO"
+
+[tool.ruff.lint]
+select = [
+    "F", # pyflakes
+    "E", # pycodestyle
+    "W", # pycodestyle
+    "I", # isort
+    "N", # naming
+    "D", # pydocstyle
+    "UP", # pyupgrade
+    "YTT", # flake8-2020
+    "ANN", # flake8-annotations
+    "B", # flake8-bugbear
+    "A", # flake8-builtins
+    "COM", # flake8-commas
+    "C4", # flake8-comprehensions
+    "DTZ", # flake8-datetimez
+    "ISC", # flake8-import-conventions
+    "ICN", # flake8-import-conventions
+    "INP", # flake8-no-pep420
+    "PIE", # flake8-pie
+    "PT", # flake8-pytest-style
+    "RET", # flake8-return
+    "SIM", # flake8-simplify
+    "TID", # flake8-tidy-imports
+    "ARG", # flake8-unused-arguments
+    "PLC", # pylint
+    "PLE", # pylint
+    "PLR", # pylint
+    "PLW", # pylint
+    "RUF", # ruff specific rules
+]
+ignore = [
+    "COM812", # missing trailing comma (handled by formatter)
+    "D105", # undocumented magic method
+    "D107", # undocumented public init
+    "D203", # incorrect blank line before class docstring
+    "D212", # muli-line summary first line
+    "PLC1901", # comparison with empty string
+    "PLR0913", # too many function arguments
+    "SIM117", # do not combine sibling with statements
+]
+unfixable = [
+    "F401", # module imported but unused
+    "F841", # local variable is assigned to but never used
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"test_*.py" = [
+    "ANN", # annotations
+    "D101", # missing docstring in public class
+    "D103", # missing docstring in public method
+    "PLR2004", # magic value used in comparison
+]
+"conftest.py" = [
+    "ANN", # annotations
+    "ARG001", # pytest hook hookspec requires unused `config` parameter
+    "D101", # missing docstring in public class
+    "D103", # missing docstring in public method
+    "PLR2004", # magic value used in comparison
+    "PLC0415", # deferred imports in fixtures (see python.mdc)
+]
+
+[tool.ruff.lint.pyupgrade]
+keep-runtime-typing = true
