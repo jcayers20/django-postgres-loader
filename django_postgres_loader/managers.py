@@ -1,10 +1,8 @@
 """Custom Django manager that exposes the CopyLoader pipeline."""
 
-from typing import List, Optional
-
 from django.db import models
 
-from .load import CopyLoader
+from .load import CopyDataSource, CopyLoader
 
 
 class CopyManager(models.Manager):
@@ -12,16 +10,16 @@ class CopyManager(models.Manager):
 
     def load(
         self,
-        data,
+        data: CopyDataSource,
         method: str,
-        join_columns: Optional[List[str]] = None,
-        delimiter: Optional[str] = None,
-        null_string: Optional[str] = None,
-        quote_character: Optional[str] = None,
-        force_not_null: Optional[List[str]] = None,
-        force_null: Optional[List[str]] = None,
-        encoding: Optional[str] = None,
-        temp_table_name: Optional[str] = None,
+        join_columns: list[str] | None = None,
+        delimiter: str | None = None,
+        null_string: str | None = None,
+        quote_character: str | None = None,
+        force_not_null: list[str] | None = None,
+        force_null: list[str] | None = None,
+        encoding: str | None = None,
+        temp_table_name: str | None = None,
         keep_temp_table: bool = False,
     ) -> int:
         """Load CSV data into the model table using a temporary-table pipeline.

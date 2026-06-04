@@ -7,9 +7,10 @@ import random
 import re
 import string
 from pathlib import Path
-from typing import List, Optional, Set, Tuple, Type
+from typing import Any, TypeAlias
 
 from django.db import connection, models, transaction
+from django.db.backends.utils import CursorWrapper
 
 from .core.definitions import VALID_METHODS, render_template
 
@@ -17,6 +18,11 @@ logger = logging.getLogger(__name__)
 
 # Regex for valid PostgreSQL identifiers (temp table names)
 _TEMP_TABLE_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,62}$")
+
+# Minimum supported PostgreSQL major version (MERGE requires 15+)
+_MIN_PG_MAJOR_VERSION = 15
+
+CopyDataSource: TypeAlias = io.StringIO | Path | Any
 
 
 class CopyLoader:
@@ -36,17 +42,17 @@ class CopyLoader:
 
     def __init__(
         self,
-        model: Type[models.Model],
-        data,
+        model: type[models.Model],
+        data: CopyDataSource,
         method: str,
-        join_columns: Optional[List[str]] = None,
-        delimiter: Optional[str] = None,
-        null_string: Optional[str] = None,
-        quote_character: Optional[str] = None,
-        force_not_null: Optional[List[str]] = None,
-        force_null: Optional[List[str]] = None,
-        encoding: Optional[str] = None,
-        temp_table_name: Optional[str] = None,
+        join_columns: list[str] | None = None,
+        delimiter: str | None = None,
+        null_string: str | None = None,
+        quote_character: str | None = None,
+        force_not_null: list[str] | None = None,
+        force_null: list[str] | None = None,
+        encoding: str | None = None,
+        temp_table_name: str | None = None,
         keep_temp_table: bool = False,
     ) -> None:
         """Initialise and validate all parameters.
@@ -72,8 +78,8 @@ class CopyLoader:
         self.keep_temp_table = keep_temp_table
 
         # Discover model metadata before any further validation
-        self._model_field_names: Set[str] = self._get_model_field_names()
-        self._auto_field_names: Set[str] = self._get_model_auto_field_names()
+        self._model_field_names: set[str] = self._get_model_field_names()
+        self._auto_field_names: set[str] = self._get_model_auto_field_names()
 
         # Normalise data into a StringIO before reading column headers
         self.data: io.StringIO = self._normalize_data(data)
@@ -82,7 +88,7 @@ class CopyLoader:
         self.delimiter = delimiter
 
         # Read CSV column headers from the normalised data
-        self.data_columns: List[str] = self._get_data_columns()
+        self.data_columns: list[str] = self._get_data_columns()
 
         # Validate CSV columns against the model allow-list
         self._validate_data_columns()
@@ -119,7 +125,7 @@ class CopyLoader:
     # Data normalization
     # --------------------------------------------------------------------------
 
-    def _normalize_data(self, data) -> io.StringIO:
+    def _normalize_data(self, data: CopyDataSource) -> io.StringIO:
         """Convert *data* to an ``io.StringIO`` instance.
 
         Accepted types:
@@ -141,7 +147,7 @@ class CopyLoader:
         if isinstance(data, Path):
             if not data.is_file():
                 raise ValueError(
-                    f"File does not exist or is not readable: {data}"
+                    f"File does not exist or is not readable: {data}",
                 )
             content = data.read_text()
             # Validate that the content can be parsed as CSV
@@ -150,7 +156,7 @@ class CopyLoader:
                 list(reader)  # read all rows to surface parse errors
             except csv.Error as exc:
                 raise ValueError(
-                    f"File cannot be parsed as CSV: {exc}"
+                    f"File cannot be parsed as CSV: {exc}",
                 ) from exc
             return io.StringIO(content)
 
@@ -164,23 +170,19 @@ class CopyLoader:
             pass  # pandas not installed — fall through to TypeError
 
         raise TypeError(
-            "data must be an io.StringIO, a pathlib.Path, or a pandas DataFrame. "
-            f"Got: {type(data).__name__}"
+            "data must be io.StringIO, pathlib.Path, or pandas DataFrame. "
+            f"Got: {type(data).__name__}",
         )
 
     # --------------------------------------------------------------------------
     # Model metadata helpers
     # --------------------------------------------------------------------------
 
-    def _get_model_field_names(self) -> Set[str]:
+    def _get_model_field_names(self) -> set[str]:
         """Return the set of database column names defined on the model."""
-        return {
-            f.column
-            for f in self.model._meta.get_fields()
-            if hasattr(f, "column")
-        }
+        return {f.column for f in self.model._meta.get_fields() if hasattr(f, "column")}
 
-    def _get_model_auto_field_names(self) -> Set[str]:
+    def _get_model_auto_field_names(self) -> set[str]:
         """Return the set of auto-increment field column names."""
         return {
             f.column
@@ -195,7 +197,7 @@ class CopyLoader:
     # Data column helpers
     # --------------------------------------------------------------------------
 
-    def _get_data_columns(self) -> List[str]:
+    def _get_data_columns(self) -> list[str]:
         """Read and return the CSV header row column names."""
         self.data.seek(0)
         delimiter = self.delimiter or ","
@@ -217,7 +219,7 @@ class CopyLoader:
                 raise ValueError(
                     f"CSV column '{col}' does not correspond to any field on "
                     f"{self.model.__name__}. Valid fields: "
-                    f"{sorted(self._model_field_names)}"
+                    f"{sorted(self._model_field_names)}",
                 )
 
         # Every non-nullable, non-auto field must be present in the CSV
@@ -231,26 +233,26 @@ class CopyLoader:
                 hasattr(field, "null")
                 and not field.null
                 and not field.primary_key
+                and field.column not in csv_col_set
             ):
-                if field.column not in csv_col_set:
-                    raise ValueError(
-                        f"Required field '{field.column}' on "
-                        f"{self.model.__name__} is non-nullable but was not "
-                        "found in the CSV data."
-                    )
+                raise ValueError(
+                    f"Required field '{field.column}' on "
+                    f"{self.model.__name__} is non-nullable but was not "
+                    "found in the CSV data.",
+                )
 
     # --------------------------------------------------------------------------
     # Parameter validation
     # --------------------------------------------------------------------------
 
     def _validate_method(self, method: str) -> None:
-        """Validate that *method* is one of the supported insertion strategies."""
+        """Validate that *method* is a supported insertion method."""
         if method not in VALID_METHODS:
             raise ValueError(
-                f"method must be one of {VALID_METHODS}. Got: {method!r}"
+                f"method must be one of {VALID_METHODS}. Got: {method!r}",
             )
 
-    def _validate_join_columns(self, join_columns: Optional[List[str]]) -> None:
+    def _validate_join_columns(self, join_columns: list[str] | None) -> None:
         """Validate *join_columns* against the method and the model's fields.
 
         Raises:
@@ -260,11 +262,12 @@ class CopyLoader:
         if self.method in ("update", "upsert"):
             if not join_columns:
                 raise ValueError(
-                    f"join_columns is required when method is '{self.method}'."
+                    f"join_columns is required when method is '{self.method}'.",
                 )
         elif join_columns is not None:
             logger.warning(
-                "join_columns is ignored for method '%s'.", self.method
+                "join_columns is ignored for method '%s'.",
+                self.method,
             )
 
         if join_columns is not None:
@@ -273,51 +276,51 @@ class CopyLoader:
                     raise ValueError(
                         f"join_columns value '{col}' is not a field on "
                         f"{self.model.__name__}. Valid fields: "
-                        f"{sorted(self._model_field_names)}"
+                        f"{sorted(self._model_field_names)}",
                     )
 
-    def _validate_delimiter(self, delimiter: Optional[str]) -> None:
-        """Validate that *delimiter* is a single-character string, if provided."""
-        if delimiter is not None:
-            if not isinstance(delimiter, str) or len(delimiter) != 1:
-                raise ValueError(
-                    f"delimiter must be a single-character string. Got: {delimiter!r}"
-                )
-
-    def _validate_null_string(self, null_string: Optional[str]) -> None:
-        """Validate that *null_string* is a string, if provided."""
-        if null_string is not None and not isinstance(null_string, str):
+    def _validate_delimiter(self, delimiter: str | None) -> None:
+        """Validate that *delimiter* is a single-character string."""
+        if delimiter is not None and (
+            not isinstance(delimiter, str) or len(delimiter) != 1
+        ):
             raise ValueError(
-                f"null_string must be a str. Got: {type(null_string).__name__}"
+                f"delimiter must be a single-character string. Got: {delimiter!r}",
             )
 
-    def _validate_quote_character(self, quote_character: Optional[str]) -> None:
-        """Validate that *quote_character* is a single-character string, if provided."""
-        if quote_character is not None:
-            if (
-                not isinstance(quote_character, str)
-                or len(quote_character) != 1
-            ):
-                raise ValueError(
-                    f"quote_character must be a single-character string. "
-                    f"Got: {quote_character!r}"
-                )
+    def _validate_null_string(self, null_string: str | None) -> None:
+        """Validate that *null_string* is a string."""
+        if null_string is not None and not isinstance(null_string, str):
+            raise ValueError(
+                f"null_string must be a str. Got: {type(null_string).__name__}",
+            )
 
-    def _validate_encoding(self, encoding: Optional[str]) -> None:
+    def _validate_quote_character(self, quote_character: str | None) -> None:
+        """Validate that *quote_character* is a single-character string."""
+        if quote_character is not None and (
+            not isinstance(quote_character, str) or len(quote_character) != 1
+        ):
+            raise ValueError(
+                f"quote_character must be a single-character string. "
+                f"Got: {quote_character!r}",
+            )
+
+    def _validate_encoding(self, encoding: str | None) -> None:
         """Validate that *encoding* is a non-empty, whitespace-free string."""
-        if encoding is not None:
-            if (
-                not isinstance(encoding, str)
-                or not encoding
-                or any(c.isspace() for c in encoding)
-            ):
-                raise ValueError(
-                    f"encoding must be a non-empty string with no whitespace. "
-                    f"Got: {encoding!r}"
-                )
+        if encoding is not None and (
+            not isinstance(encoding, str)
+            or not encoding
+            or any(c.isspace() for c in encoding)
+        ):
+            raise ValueError(
+                f"encoding must be a non-empty string with no whitespace. "
+                f"Got: {encoding!r}",
+            )
 
     def _validate_column_list(
-        self, columns: Optional[List[str]], param_name: str
+        self,
+        columns: list[str] | None,
+        param_name: str,
     ) -> None:
         """Validate that every element of *columns* is a model field name.
 
@@ -331,7 +334,7 @@ class CopyLoader:
                     raise ValueError(
                         f"{param_name} value '{col}' is not a field on "
                         f"{self.model.__name__}. Valid fields: "
-                        f"{sorted(self._model_field_names)}"
+                        f"{sorted(self._model_field_names)}",
                     )
 
     def _validate_temp_table_name(self, name: str) -> None:
@@ -342,7 +345,7 @@ class CopyLoader:
         if not _TEMP_TABLE_NAME_RE.match(name):
             raise ValueError(
                 "temp_table_name must match ^[A-Za-z_][A-Za-z0-9_]{0,62}$. "
-                f"Got: {name!r}"
+                f"Got: {name!r}",
             )
 
     def _generate_temp_table_name(self) -> str:
@@ -355,7 +358,7 @@ class CopyLoader:
     # Pipeline steps
     # --------------------------------------------------------------------------
 
-    def _build_field_definitions(self) -> List[Tuple[str, str]]:
+    def _build_field_definitions(self) -> list[tuple[str, str]]:
         """Return a list of (column_name, sql_type) pairs for the temp table."""
         definitions = []
         for col in self.data_columns:
@@ -364,7 +367,7 @@ class CopyLoader:
             definitions.append((col, db_type.upper()))
         return definitions
 
-    def _create_temp_table(self, cursor) -> None:
+    def _create_temp_table(self, cursor: CursorWrapper) -> None:
         """Step 1: Create a temporary table matching the CSV columns."""
         field_definitions = self._build_field_definitions()
         sql = render_template(
@@ -374,7 +377,7 @@ class CopyLoader:
         )
         cursor.execute(sql)
 
-    def _copy_data(self, cursor) -> None:
+    def _copy_data(self, cursor: CursorWrapper) -> None:
         """Step 2: Stream CSV data into the temp table via COPY FROM STDIN.
 
         Accesses the underlying psycopg cursor to perform the COPY operation.
@@ -404,7 +407,7 @@ class CopyLoader:
             # psycopg2 path: copy_expert streams from a file-like object
             raw.copy_expert(sql, self.data)
 
-    def _merge_data(self, cursor) -> int:
+    def _merge_data(self, cursor: CursorWrapper) -> int:
         """Step 3: Move rows from the temp table into the target model table.
 
         Returns:
@@ -435,9 +438,7 @@ class CopyLoader:
             return cursor.rowcount
 
         # "update" and "upsert" both use PostgreSQL MERGE
-        non_join_columns = [
-            c for c in self.data_columns if c not in self.join_columns
-        ]
+        non_join_columns = [c for c in self.data_columns if c not in self.join_columns]
 
         if self.method == "update":
             sql = render_template(
@@ -462,7 +463,7 @@ class CopyLoader:
         cursor.execute(sql)
         return cursor.rowcount
 
-    def _drop_temp_table(self, cursor) -> None:
+    def _drop_temp_table(self, cursor: CursorWrapper) -> None:
         """Step 4: Drop the temporary table."""
         sql = render_template("drop.sql", temp_table_name=self.temp_table_name)
         cursor.execute(sql)
@@ -480,11 +481,12 @@ class CopyLoader:
         # connection.pg_version is an integer like 150006 for PG 15.6
         pg_version = connection.pg_version
         major_version = pg_version // 10000
-        if major_version < 15:
+        if major_version < _MIN_PG_MAJOR_VERSION:
             raise RuntimeError(
-                f"django-postgres-loader requires PostgreSQL 15 or higher. "
+                f"django-postgres-loader requires PostgreSQL "
+                f"{_MIN_PG_MAJOR_VERSION} or higher. "
                 f"Connected server reports version {major_version} "
-                f"(pg_version={pg_version})."
+                f"(pg_version={pg_version}).",
             )
 
     # --------------------------------------------------------------------------
@@ -492,7 +494,7 @@ class CopyLoader:
     # --------------------------------------------------------------------------
 
     def load(self) -> int:
-        """Execute the four-step pipeline and return the number of rows affected.
+        """Execute the full data load pipeline.
 
         The full pipeline runs inside ``transaction.atomic()``. If any step
         after CREATE raises an exception, the DROP step still executes
@@ -504,13 +506,12 @@ class CopyLoader:
         """
         self._validate_pg_version()
         rows_affected = 0
-        with transaction.atomic():
-            with connection.cursor() as cursor:
-                self._create_temp_table(cursor)
-                try:
-                    self._copy_data(cursor)
-                    rows_affected = self._merge_data(cursor)
-                finally:
-                    if not self.keep_temp_table:
-                        self._drop_temp_table(cursor)
+        with transaction.atomic(), connection.cursor() as cursor:
+            self._create_temp_table(cursor)
+            try:
+                self._copy_data(cursor)
+                rows_affected = self._merge_data(cursor)
+            finally:
+                if not self.keep_temp_table:
+                    self._drop_temp_table(cursor)
         return rows_affected

@@ -1,16 +1,13 @@
 """Tests for the CopyLoader pipeline via CopyManager.load()."""
 
+import builtins
 import io
 import logging
 import uuid
 from unittest.mock import patch
 
-import builtins
-
 import pytest
 from django.db import connection
-
-logger = logging.getLogger(__name__)
 
 from tests.models import (
     NaturalKeyModel,
@@ -19,6 +16,7 @@ from tests.models import (
     UpsertModel,
 )
 
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Data source type tests
@@ -31,7 +29,8 @@ class TestDataSources:
     def test_stringio(self, simple_csv_stringio):
         """Load rows from an in-memory StringIO source."""
         count = SimpleModel.objects.load(
-            data=simple_csv_stringio, method="append"
+            data=simple_csv_stringio,
+            method="append",
         )
         assert count == 2
         assert SimpleModel.objects.count() == 2
@@ -45,16 +44,18 @@ class TestDataSources:
     def test_dataframe(self, simple_csv_dataframe):
         """Load rows from a pandas DataFrame source."""
         count = SimpleModel.objects.load(
-            data=simple_csv_dataframe, method="append"
+            data=simple_csv_dataframe,
+            method="append",
         )
         assert count == 2
         assert SimpleModel.objects.count() == 2
 
     def test_bare_str_raises_type_error(self):
         """Reject bare string paths and require supported data source types."""
-        with pytest.raises(TypeError, match="io.StringIO"):
+        with pytest.raises(TypeError, match=r"io\.StringIO"):
             SimpleModel.objects.load(
-                data="name,value\nAlice,1\n", method="append"
+                data="name,value\nAlice,1\n",
+                method="append",
             )
 
 
@@ -90,7 +91,8 @@ class TestReplace:
     def test_replace_inserts_rows(self, simple_csv_stringio):
         """Insert CSV rows into an empty table with replace."""
         count = SimpleModel.objects.load(
-            data=simple_csv_stringio, method="replace"
+            data=simple_csv_stringio,
+            method="replace",
         )
         assert count == 2
         assert SimpleModel.objects.count() == 2
@@ -114,7 +116,9 @@ class TestUpdate:
     """update merges matching rows; unmatched source rows are discarded."""
 
     def test_update_matched_rows(
-        self, upsert_csv_stringio, upsert_csv_updated_stringio
+        self,
+        upsert_csv_stringio,
+        upsert_csv_updated_stringio,
     ):
         """Update only matching target rows when join keys match."""
         UpsertModel.objects.load(data=upsert_csv_stringio, method="append")
@@ -144,7 +148,9 @@ class TestUpsert:
     """upsert updates matched rows and inserts unmatched rows."""
 
     def test_upsert_updates_and_inserts(
-        self, upsert_csv_stringio, upsert_csv_updated_stringio
+        self,
+        upsert_csv_stringio,
+        upsert_csv_updated_stringio,
     ):
         """Update matched rows and insert unmatched rows during upsert."""
         UpsertModel.objects.load(data=upsert_csv_stringio, method="append")
@@ -175,7 +181,8 @@ class TestNullableFields:
     def test_nullable_field_not_required_in_csv(self, nullable_csv_stringio):
         """A non-required nullable field need not appear in the CSV."""
         count = NullableFieldModel.objects.load(
-            data=nullable_csv_stringio, method="append"
+            data=nullable_csv_stringio,
+            method="append",
         )
         assert count == 1
 
@@ -191,7 +198,8 @@ class TestNaturalKeyModel:
     def test_natural_key_load(self, natural_key_csv_stringio):
         """Load rows into a model that uses a non-auto primary key."""
         count = NaturalKeyModel.objects.load(
-            data=natural_key_csv_stringio, method="append"
+            data=natural_key_csv_stringio,
+            method="append",
         )
         assert count == 2
         assert NaturalKeyModel.objects.count() == 2
@@ -220,7 +228,9 @@ class TestValidation:
         """Raise ValueError for invalid delimiter values."""
         with pytest.raises(ValueError, match="delimiter"):
             SimpleModel.objects.load(
-                data=simple_csv_stringio, method="append", delimiter="too_long"
+                data=simple_csv_stringio,
+                method="append",
+                delimiter="too_long",
             )
 
     def test_invalid_temp_table_name_raises(self, simple_csv_stringio):
@@ -236,7 +246,9 @@ class TestValidation:
         """Raise ValueError for invalid encoding strings."""
         with pytest.raises(ValueError, match="encoding"):
             SimpleModel.objects.load(
-                data=simple_csv_stringio, method="append", encoding="utf 8"
+                data=simple_csv_stringio,
+                method="append",
+                encoding="utf 8",
             )
 
 
@@ -244,7 +256,7 @@ class TestKeepTempTable:
     """Tests for the keep_temp_table parameter."""
 
     def test_temp_table_is_kept_if_true(self, simple_csv_stringio):
-        """Ensure temp table still exists after load() when keep_temp_table=True."""
+        """Ensure temp table exists when keep_temp_table=True."""
         temp_table_name = f"tmp_keep_temp_{uuid.uuid4().hex[:8]}"
         SimpleModel.objects.load(
             data=simple_csv_stringio,
@@ -255,7 +267,7 @@ class TestKeepTempTable:
 
         with connection.cursor() as cursor:
             cursor.execute(
-                f'SELECT name, value FROM pg_temp."{temp_table_name}" ORDER BY name'
+                f'SELECT name, value FROM pg_temp."{temp_table_name}" ORDER BY name',
             )
             rows = cursor.fetchall()
 
@@ -265,7 +277,7 @@ class TestKeepTempTable:
         assert rows == [("Alice", 1), ("Bob", 2)]
 
     def test_temp_table_is_dropped_if_false(self, simple_csv_stringio):
-        """Ensure temp table is dropped after load() when keep_temp_table=False."""
+        """Ensure temp table is dropped when keep_temp_table=False."""
         temp_table_name = f"tmp_drop_temp_{uuid.uuid4().hex[:8]}"
         SimpleModel.objects.load(
             data=simple_csv_stringio,
@@ -288,7 +300,7 @@ class TestKeepTempTable:
         assert not exists
 
     def test_temp_table_is_dropped_by_default(self, simple_csv_stringio):
-        """Ensure temp table is dropped after load() when keep_temp_table is not set."""
+        """Ensure temp table is dropped when keep_temp_table is not set."""
         temp_table_name = f"tmp_default_drop_{uuid.uuid4().hex[:8]}"
         SimpleModel.objects.load(
             data=simple_csv_stringio,
@@ -329,7 +341,7 @@ class TestDataSourceValidation:
     def test_non_pandas_non_supported_type_raises_when_pandas_mocked_absent(
         self,
     ):
-        """Raise TypeError for unsupported data types when pandas is unavailable."""
+        """Raise TypeError for unsupported data types if pandas unavailable."""
         real_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):
@@ -338,7 +350,7 @@ class TestDataSourceValidation:
             return real_import(name, *args, **kwargs)
 
         with patch("builtins.__import__", side_effect=mock_import):
-            with pytest.raises(TypeError, match="io.StringIO"):
+            with pytest.raises(TypeError, match=r"io\.StringIO"):
                 SimpleModel.objects.load(data={"key": "value"}, method="append")
 
 
@@ -348,7 +360,7 @@ class TestColumnValidation:
     def test_missing_required_column_raises(self):
         """Raise ValueError when a required non-nullable column is missing."""
         data = io.StringIO("name\nAlice\n")
-        with pytest.raises(ValueError, match="non-nullable|value"):
+        with pytest.raises(ValueError, match=r"non-nullable|value"):
             SimpleModel.objects.load(data=data, method="append")
 
 
@@ -356,11 +368,14 @@ class TestJoinColumnValidation:
     """Validation and warning behavior for join_columns."""
 
     def test_join_columns_ignored_warning_for_append(
-        self, caplog, simple_csv_stringio
+        self,
+        caplog,
+        simple_csv_stringio,
     ):
         """Log a warning when join_columns is passed to append."""
         with caplog.at_level(
-            logging.WARNING, logger="django_postgres_loader.load"
+            logging.WARNING,
+            logger="django_postgres_loader.load",
         ):
             SimpleModel.objects.load(
                 data=simple_csv_stringio,
@@ -370,11 +385,14 @@ class TestJoinColumnValidation:
         assert "join_columns is ignored" in caplog.text
 
     def test_join_columns_ignored_warning_for_replace(
-        self, caplog, simple_csv_stringio
+        self,
+        caplog,
+        simple_csv_stringio,
     ):
         """Log a warning when join_columns is passed to replace."""
         with caplog.at_level(
-            logging.WARNING, logger="django_postgres_loader.load"
+            logging.WARNING,
+            logger="django_postgres_loader.load",
         ):
             SimpleModel.objects.load(
                 data=simple_csv_stringio,
@@ -385,7 +403,7 @@ class TestJoinColumnValidation:
 
     def test_unknown_join_column_raises(self, upsert_csv_stringio):
         """Raise ValueError when a join column is not a model field."""
-        with pytest.raises(ValueError, match="nonexistent_col|join_columns"):
+        with pytest.raises(ValueError, match=r"nonexistent_col|join_columns"):
             UpsertModel.objects.load(
                 data=upsert_csv_stringio,
                 method="upsert",
@@ -400,7 +418,9 @@ class TestCopyParameterValidation:
         """Raise ValueError when delimiter is not a string."""
         with pytest.raises(ValueError, match="delimiter"):
             SimpleModel.objects.load(
-                data=simple_csv_stringio, method="append", delimiter=99
+                data=simple_csv_stringio,
+                method="append",
+                delimiter=99,
             )
 
     def test_non_string_null_string_raises(self, simple_csv_stringio):
@@ -442,7 +462,8 @@ class TestCopyParameterValidation:
     def test_unknown_force_not_null_column_raises(self, simple_csv_stringio):
         """Raise ValueError for unknown columns in force_not_null."""
         with pytest.raises(
-            ValueError, match="nonexistent_field|force_not_null"
+            ValueError,
+            match=r"nonexistent_field|force_not_null",
         ):
             SimpleModel.objects.load(
                 data=simple_csv_stringio,
@@ -452,7 +473,7 @@ class TestCopyParameterValidation:
 
     def test_unknown_force_null_column_raises(self, simple_csv_stringio):
         """Raise ValueError for unknown columns in force_null."""
-        with pytest.raises(ValueError, match="nonexistent_field|force_null"):
+        with pytest.raises(ValueError, match=r"nonexistent_field|force_null"):
             SimpleModel.objects.load(
                 data=simple_csv_stringio,
                 method="append",

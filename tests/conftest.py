@@ -55,14 +55,6 @@ def django_db_setup():
 @pytest.fixture(autouse=True)
 def clean_tables():
     """Truncate all test tables after each test to ensure isolation."""
-    from tests.models import (
-        NaturalKeyModel,
-        NullableFieldModel,
-        RelatedModel,
-        SimpleModel,
-        UpsertModel,
-    )
-
     yield
 
     # Clean up after each test
@@ -70,7 +62,7 @@ def clean_tables():
         cursor.execute(
             'TRUNCATE TABLE "tests_simplemodel", "tests_nullablefieldmodel", '
             '"tests_naturalkeymodel", "tests_upsertmodel", "tests_relatedmodel" '
-            "RESTART IDENTITY CASCADE"
+            "RESTART IDENTITY CASCADE",
         )
 
 

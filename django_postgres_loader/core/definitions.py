@@ -1,4 +1,4 @@
-"""Module-level constants and the shared Jinja2 environment for SQL templates."""
+"""Module-level constants and shared Jinja2 environment for SQL templates."""
 
 from pathlib import Path
 
@@ -17,7 +17,7 @@ _env = jinja2.Environment(
 )
 
 
-def render_template(template_name: str, **context) -> str:
+def render_template(template_name: str, **context: object) -> str:
     """Render a SQL template with the given context variables.
 
     Args:
