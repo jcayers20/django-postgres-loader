@@ -1,0 +1,95 @@
+---
+description: Standards and conventions for writing Python code.
+globs: **/*.py
+alwaysApply: false
+---
+
+# Coding Standards
+
+## Security and Safety
+
+- No secrets in source; place in `.env` (ignored by Git) instead
+- Ignore all files/directories containing sensitive data
+- Do not use `eval`/`exec` under any circumstances
+- Do not `pickle` sensitive data
+- Always validate and clean user input before executing logic using it (e.g. parameterized SQL query)
+- `# noqa: <RULE>` on the same line only, with a one-line comment explaining why.
+
+## Structure and Module Design
+
+- One responsibility per module and public function; split if a docstring must explain *what* it does.
+- Small public API; use `_` prefix for internals.
+- Break import cycles with `TYPE_CHECKING` or a shared `types.py`.
+- Guard clauses over deep nesting; ~50 lines is a soft max per function.
+
+## Error Handling
+
+- Catch specific exceptions; never bare `except` or silent swallowing.
+- Re-raise with `from exc` when wrapping; use domain errors at boundaries.
+- Fail fast on programmer errors; recover only for expected operational failures.
+- `with` for resources; combine sibling `with` statements (SIM117).
+
+## Performance
+
+- Favor readability over performance unless performance difference is significant.
+- Use generators for large/infinite sequences.
+- Select data structures based on minimum required operations but avoid premature optimization.
+- Place optional and heavy imports inside the functions that use them.
+    - This violates Ruff rule PLC0415 so be sure to include `noqa` comment.
+
+## Documentation
+
+### Audience
+
+- Assume readers of code have intermediate Python knowledge.
+- Write documentation so that new team members can easily understand what code
+does and why.
+
+### Docstrings
+
+- Google style on all public modules, classes, and functions (`pyproject.toml`).
+- Private helpers: docstring when not obvious. Use `Args:`, `Returns:`, `Raises:`; imperative mood; backticks for names.
+
+### Comments
+
+- Explain why, invariants, and trade-offs—not what the code does. Comment before non-obvious code.
+
+### Logging
+
+- `logger = logging.getLogger(__name__)` in libraries/apps; `print` only for scripts/CLI.
+- Match level to severity; include context; never log secrets or sensitive payloads.
+
+### Readme Files
+
+- Keep README current: install, usage, required services, and env vars.
+
+# Conventions
+
+## Naming
+
+- `snake_case` (modules, functions, vars); `PascalCase` (classes); `SCREAMING_SNAKE` (constants).
+- Booleans: `is_` / `has_` / `can_` / `should_`. Avoid vague names (`data`, `util`) unless clear. `_` for private.
+
+## Imports
+
+- Order: stdlib → third-party → local (blank lines between). Prefer absolute imports.
+- `TYPE_CHECKING` for annotation-only imports that would cycle at runtime.
+
+## File and Package Layout
+
+- One concept per file; `__init__.py` re-exports public API only.
+- Tests under `tests/` as `test_<module>.py`, mirroring source; shared fixtures in `conftest.py`.
+- Section comments (`# ---`) OK in long modules; split the file if a section exceeds ~5 helpers.
+
+## Formatting and Tooling
+
+- Ruff formats and lints; all tool config in `pyproject.toml`. Run `ruff check` and `ruff format` before commit.
+- 88-char lines; trailing commas on multi-line constructs (COM).
+- `pytest.raises(match=...)`: use raw strings or `re.escape()` for metacharacters (RUF043).
+
+## Testing (pytest)
+
+- Run `pytest` (project `addopts`: verbose + coverage via pytest-cov).
+- Group by feature class; name `test_<behaviour>_<condition>`; assert outcomes, not internals.
+- `pytest.importorskip` for optional deps; `pytest.raises(..., match=...)` for errors.
+- Test files: relaxed ANN/D101/D103 per `pyproject.toml` per-file-ignores.
